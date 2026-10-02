@@ -1,0 +1,69 @@
+name: Full Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Verification profile'
+        required: true
+        default: 'full'
+        type: choice
+        options: [quick, full]
+  schedule:
+    # Weekly on Sunday 00:00 UTC
+    - cron: '0 0 * * 0'
+
+jobs:
+  full-verification:
+    name: Full Verification (${{ github.event.inputs.profile || 'full' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: pip install -e .
+
+      - name: Run verification suite
+        run: |
+          PROFILE="${{ github.event.inputs.profile || 'full' }}"
+          echo "Running profile: $PROFILE"
+          python scripts/run_verification.py \
+            --profile $PROFILE \
+            --output-dir results
+
+      - name: Generate evidence ledger
+        run: python scripts/generate_evidence.py
+
+      - name: Verify results
+        run: |
+          python -c "
+          import json, sys
+          s = json.load(open('results/status.json'))
+          print('=== Verification Results ===')
+          print(f'Version: {s[\"version\"]}')
+          print(f'Profile: {s[\"profile\"]}')
+          print(f'Status: {s[\"status\"]}')
+          print(f'Total cases: {s[\"total_cases\"]:,}')
+          print(f'  Single-block (M3\\'): {s[\"single_block_cases\"]:,}')
+          print(f'  Multi-block (14.3): {s[\"multiblock_cases\"]:,}')
+          print(f'  Adversarial: {s[\"adversarial_cases\"]:,}')
+          print(f'Failures: {s[\"failed_cases\"]}')
+          print(f'Runtime: {s[\"runtime_sec\"]}s')
+          print()
+          print('EPISTEMIC NOTE:', s['epistemic_note'])
+          sys.exit(0 if s['status'] == 'PASS' else 1)
+          "
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-results-${{ github.run_id }}
+          path: results/
+          retention-days: 90
