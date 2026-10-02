@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "additive-self-healing"
+version = "2.17.0"
+description = "Computational research package for additive self-healing in lattice sumsets with interior voids"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Scott Sun", email = "scott.sun@research.org"},
+]
+keywords = [
+    "additive combinatorics",
+    "lattice sumsets",
+    "Minkowski sums",
+    "iterated sumsets",
+    "self-healing",
+    "computational mathematics",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "ruff>=0.1.0",
+]
+benchmark = [
+    "numpy>=1.24",
+]
+
+[project.urls]
+"OSF Project" = "https://osf.io/czk8r/"
+"ResearchGate" = "https://www.researchgate.net/publication/411807706"
+"ORCID" = "https://orcid.org/0009-0002-1095-6228"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311"]
