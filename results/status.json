@@ -1,0 +1,19 @@
+{
+  "version": "2.17",
+  "profile": "ci",
+  "timestamp": "2026-10-02T13:36:47Z",
+  "status": "PASS",
+  "not_a_proof": true,
+  "epistemic_note": "Computational verification is evidence for conjectures. NOT a mathematical proof.",
+  "single_block_cases": 276,
+  "multiblock_cases": 205,
+  "adversarial_cases": 520,
+  "total_cases": 1001,
+  "failed_cases": 0,
+  "engines": [
+    "pure_set",
+    "bitwise",
+    "formula"
+  ],
+  "runtime_sec": 0.11
+}
