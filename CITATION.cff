@@ -1,0 +1,60 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Additive Self-Healing in Lattice Sumsets with Interior Voids"
+version: "2.17.0"
+date-released: "2026-10-02"
+authors:
+  - family-names: "Sun"
+    given-names: "Scott"
+    orcid: "https://orcid.org/0009-0002-1095-6228"
+abstract: >
+  Computational research package for studying additive self-healing
+  thresholds h*(A_hole; A_full) in finite lattice sumsets with interior
+  void configurations. Implements three independent verification engines
+  (pure-set, bitwise, formula) for cross-auditing Conjecture M3' and
+  Conjecture 14.3 (Structural Independence).
+license: MIT
+repository-code: "https://github.com/suns1232023/additive-self-healing"
+identifiers:
+  - type: doi
+    value: "10.17605/OSF.IO/CZK8R"
+    description: "OSF Project DOI"
+  - type: doi
+    value: "10.13140/RG.2.2.30968.61445"
+    description: "ResearchGate Dataset DOI"
+keywords:
+  - additive combinatorics
+  - lattice sumsets
+  - Minkowski sums
+  - iterated sumsets
+  - self-healing
+  - computational mathematics
+  - Khovanskii theory
+references:
+  - type: article
+    authors:
+      - family-names: "Nathanson"
+        given-names: "Melvyn B."
+    title: "Problems in additive number theory, VI: Sizes of sumsets of finite sets"
+    journal: "Acta Mathematica Hungarica"
+    volume: 176
+    issue: 2
+    pages: "498-521"
+    year: 2025
+    doi: "10.1007/s10474-025-01559-7"
+  - type: article
+    authors:
+      - family-names: "Rajagopal"
+        given-names: "Isaac"
+    title: "Possible sizes of sumsets"
+    journal: "Discrete Analysis"
+    year: 2026
+    doi: "10.19086/da.165102"
+  - type: article
+    authors:
+      - family-names: "Jung"
+        given-names: "Minkyu"
+    title: "A local classification of four-element multiple sumsets"
+    year: 2026
+    url: "https://arxiv.org/abs/2607.18694"
