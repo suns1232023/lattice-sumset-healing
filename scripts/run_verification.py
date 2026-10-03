@@ -2,9 +2,9 @@
 scripts/run_verification.py — Master verification script.
 
 Usage:
-    python scripts/run_verification.py --profile ci      # fast (~0.1s)
-    python scripts/run_verification.py --profile quick   # medium (~1s)
-    python scripts/run_verification.py --profile full    # complete (~minutes)
+    python scripts/run_verification.py --profile ci       # fast (~0.1s)
+    python scripts/run_verification.py --profile quick    # medium (~1s)
+    python scripts/run_verification.py --profile full     # complete (~minutes)
 
 Output:
     results/status.json      — machine-readable audit summary
@@ -141,7 +141,7 @@ def main():
 
     cfg = PROFILES[args.profile]
     out = Path(args.output_dir)
-    out.mkdir(exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
 
     print("=" * 65)
     print(f"  Additive Self-Healing — Verification Suite")
@@ -167,7 +167,6 @@ def main():
     failed = m3['failures'] + mb['fp'] + mb['fn'] + adv['failures']
     elapsed = time.time() - t0
 
-    # Build status.json with ALL keys needed by verification scripts
     status = {
         'version': '2.17',
         'profile': args.profile,
@@ -178,20 +177,16 @@ def main():
             'Computational verification is evidence for conjectures. '
             'NOT a mathematical proof.'
         ),
-        # Single-block (M3') audit
         'single_block_cases': m3['total'],
         'single_block_failures': m3['failures'],
-        # Multi-block (14.3) audit
         'multiblock_cases': mb['total'],
         'multiblock_tp': mb['tp'],
         'multiblock_tn': mb['tn'],
         'multiblock_fp': mb['fp'],
         'multiblock_fn': mb['fn'],
         'multiblock_failures': mb['fp'] + mb['fn'],
-        # Adversarial audit
         'adversarial_cases': adv['total'],
         'adversarial_failures': adv['failures'],
-        # Totals
         'total_cases': total,
         'failed_cases': failed,
         'engines': ['pure_set', 'bitwise', 'formula'],
@@ -202,10 +197,10 @@ def main():
     with open(status_path, 'w') as f:
         json.dump(status, f, indent=2)
 
-    # Checksums
     checksums = {}
-    for p in out.glob('*.json'):
-        checksums[p.name] = hashlib.sha256(p.read_bytes()).hexdigest()
+    for p in out.glob('*'):
+        if p.is_file():
+            checksums[p.name] = hashlib.sha256(p.read_bytes()).hexdigest()
     with open(out / 'checksums.sha256', 'w') as f:
         for name, chk in sorted(checksums.items()):
             f.write(f"{chk}  {name}\n")
