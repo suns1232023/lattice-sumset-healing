@@ -12,11 +12,15 @@ def main() -> int:
     if not status_path.exists():
         raise SystemExit("ERROR: results/status.json not found; run run_verification.py first")
 
-    status = json.loads(status_path.read_text())
+    try:
+        status = json.loads(status_path.read_text())
+    except json.JSONDecodeError as e:
+        raise SystemExit(f"ERROR: Failed to parse {status_path}: {e}")
+
     evidence = {
         "version": status.get("version", "2.17"),
         "generated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "audit_profile": status.get("profile"),
+        "audit_profile": status.get("profile", "full"),
         "audit_timestamp": status.get("timestamp"),
         "epistemic_principle": (
             "Computational verification provides evidence; it does not silently "
@@ -73,6 +77,8 @@ def main() -> int:
             "source": "results/status.json",
         },
     }
+    
+    out.mkdir(parents=True, exist_ok=True)
     (out / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     print(f"Generated {out / 'evidence.json'}")
     return 0
