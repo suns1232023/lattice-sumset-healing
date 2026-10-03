@@ -1,16 +1,18 @@
 """
 test_regression.py — Regression tests for known critical cases.
 
-These tests lock in the correct behavior for cases that were previously
-identified as critical (reviewer cases, bug fixes, etc.).
+These tests lock in correct behavior for cases identified as critical
+(reviewer cases, bug fixes, etc.).
 
-All results here are ground-truth verified.
+NAMING CONVENTION:
+    check_*  functions perform computational sanity checks on theorem instances.
+    They are NOT proofs. Theorems are proved analytically (docs/THEOREMS.md).
 """
 
 import pytest
 from self_healing.healing import self_healing_threshold, classify_1d_void
 from self_healing.formulas import predict_m3_threshold, block_distance
-from self_healing.invariants import verify_theorem_61
+from self_healing.invariants import check_theorem_61_instance
 
 
 class TestReviewerCriticalCases:
@@ -20,17 +22,15 @@ class TestReviewerCriticalCases:
         """
         Reviewer critical case: N=7, V={3,4}.
         h* = 3 (NOT 2 as incorrectly claimed in V2.9).
-        This was the key bug fixed in V2.10.
+        Bug X1 fixed in V2.10.
         """
-        N = 7
-        void_set = {3, 4}
-        h = self_healing_threshold(N, void_set, max_h=10)
+        h = self_healing_threshold(7, {3, 4}, max_h=10)
         assert h == 3, f"Expected h*=3, got {h}"
 
     def test_reviewer_n7_v34_m3_prediction(self):
         """
-        M3' prediction for N=7, V={3,4}: ⌈2/1⌉ + 1 = 3.
-        d = min(3, 2) = 2, ℓ = 2.
+        M3' prediction for N=7, V={3,4}: ceil(2/1) + 1 = 3.
+        d = min(3, 2) = 2, ell = 2.
         """
         d = block_distance(N=7, start=3, length=2)
         assert d == 2
@@ -43,8 +43,7 @@ class TestReviewerCriticalCases:
         This is the specific missing element that proves h* > 2.
         """
         from self_healing.sumset import compute_k_fold_sumset
-        N = 7
-        A_full = set(range(N))
+        A_full = set(range(7))
         A_hole = A_full - {3, 4}
         result_2hole = compute_k_fold_sumset(A_hole, 2)
         result_2full = compute_k_fold_sumset(A_full, 2)
@@ -52,42 +51,46 @@ class TestReviewerCriticalCases:
         assert 9 in result_2full
 
     def test_reviewer_n7_v34_3A_heals(self):
-        """
-        N=7, V={3,4}: 3A_hole = 3A_full (healing at h=3).
-        """
+        """N=7, V={3,4}: 3A_hole = 3A_full (healing at h=3)."""
         from self_healing.sumset import compute_k_fold_sumset
-        N = 7
-        A_full = set(range(N))
+        A_full = set(range(7))
         A_hole = A_full - {3, 4}
-        result_3hole = compute_k_fold_sumset(A_hole, 3)
-        result_3full = compute_k_fold_sumset(A_full, 3)
-        assert result_3hole == result_3full
+        assert compute_k_fold_sumset(A_hole, 3) == compute_k_fold_sumset(A_full, 3)
 
 
-class TestTheorem61Regression:
-    """Regression tests for Theorem 6.1 (d=1 single-void classification)."""
+class TestTheorem61SanityChecks:
+    """
+    Computational sanity checks for Theorem 6.1 instances.
 
-    @pytest.mark.parametrize("N,k,expected_infinite", [
-        (5, 1, True),    # near-boundary → h* = ∞
-        (5, 3, True),    # near-boundary (N-2=3) → h* = ∞
-        (5, 2, False),   # deep interior → h* = 2
-        (7, 1, True),    # near-boundary
-        (7, 5, True),    # near-boundary (N-2=5)
-        (7, 2, False),   # deep interior
-        (7, 3, False),   # deep interior
-        (7, 4, False),   # deep interior
-        (10, 1, True),   # near-boundary
-        (10, 8, True),   # near-boundary (N-2=8)
-        (10, 4, False),  # deep interior
+    Theorem 6.1 [PROVED analytically]:
+        h* = infinity  iff  k in {1, N-2}
+        h* = 2         iff  2 <= k <= N-3
+
+    These are SANITY CHECKS, not proofs.
+    """
+
+    @pytest.mark.parametrize("N,k,expect_infinite", [
+        (5, 1, True),    # near-boundary -> h* = inf
+        (5, 3, True),    # near-boundary (N-2=3) -> h* = inf
+        (5, 2, False),   # deep interior -> h* = 2
+        (7, 1, True),
+        (7, 5, True),    # N-2=5
+        (7, 2, False),
+        (7, 3, False),
+        (7, 4, False),
+        (10, 1, True),
+        (10, 8, True),   # N-2=8
+        (10, 4, False),
     ])
-    def test_theorem_61(self, N, k, expected_infinite):
+    def test_theorem_61_instance(self, N, k, expect_infinite):
         """
-        Theorem 6.1: h* = ∞ iff k ∈ {1, N-2}; h* = 2 otherwise.
+        Sanity check: computational result consistent with Theorem 6.1.
+        NOTE: check_theorem_61_instance() is a sanity check, not a proof.
         """
-        result = verify_theorem_61(N, k)
+        result = check_theorem_61_instance(N, k)
         assert result, (
-            f"Theorem 6.1 failed for N={N}, k={k}, "
-            f"expected_infinite={expected_infinite}"
+            f"Theorem 6.1 sanity check failed for N={N}, k={k}, "
+            f"expect_infinite={expect_infinite}"
         )
 
     def test_classify_1d_void_near_boundary(self):
@@ -109,13 +112,13 @@ class TestKnownHStarValues:
     """Regression tests for known h* values."""
 
     @pytest.mark.parametrize("N,void_set,expected_h", [
-        (7, {3, 4}, 3),    # reviewer critical case
-        (8, {2}, 2),       # ℓ=1, d=2 → h*=2
-        (8, {3}, 2),       # ℓ=1, d=3 → h*=2
-        (10, {2, 3}, 3),   # ℓ=2, d=2 → h*=3
-        (10, {3, 4}, 2),   # ℓ=2, d=3 → h*=2
-        (12, {2, 3, 4}, 4), # ℓ=3, d=2 → h*=4
-        (12, {3, 4, 5}, 3), # ℓ=3, d=3 → h*=3
+        (7, {3, 4}, 3),      # reviewer critical case
+        (8, {2}, 2),          # ell=1, d=2 -> h*=2
+        (8, {3}, 2),          # ell=1, d=3 -> h*=2
+        (10, {2, 3}, 3),      # ell=2, d=2 -> h*=3
+        (10, {3, 4}, 2),      # ell=2, d=3 -> h*=2
+        (12, {2, 3, 4}, 4),   # ell=3, d=2 -> h*=4
+        (12, {3, 4, 5}, 3),   # ell=3, d=3 -> h*=3
     ])
     def test_known_h_star(self, N, void_set, expected_h):
         """Verify known h* values match M3' predictions."""
@@ -131,13 +134,24 @@ class TestBugFixes:
     def test_v29_x1_bug_fixed(self):
         """
         V2.9 Bug X1: incorrectly claimed h*=2 for N=7, V={3,4}.
-        Correct answer is h*=3. This was fixed in V2.10.
+        Correct answer is h*=3. Fixed in V2.10.
         """
-        N = 7
-        void_set = {3, 4}
-        h = self_healing_threshold(N, void_set, max_h=10)
+        h = self_healing_threshold(7, {3, 4}, max_h=10)
         assert h != 2, "V2.9 bug X1 regression: h* should NOT be 2"
         assert h == 3, f"Expected h*=3, got {h}"
+
+    def test_none_does_not_mean_infinity(self):
+        """
+        None from self_healing_threshold() means 'not found within max_h',
+        NOT h* = infinity. Use classify_1d_void() for analytical infinity.
+        """
+        # Near-boundary void: analytically h* = infinity (Theorem 6.1)
+        h = self_healing_threshold(5, {1}, max_h=10)
+        assert h is None  # not found within 10 steps
+
+        # But None != infinity: classify_1d_void() gives the analytical answer
+        classification = classify_1d_void(5, {1})
+        assert classification == "INFINITE"
 
     def test_self_gaps_initialization(self):
         """
@@ -147,7 +161,7 @@ class TestBugFixes:
         from self_healing.formulas import parse_void_blocks
         void_set = {3, 4, 5, 7, 8}
         blocks = parse_void_blocks(void_set)
-        # Should parse into two blocks: (3,3) and (7,2)
         assert len(blocks) == 2
         assert blocks[0] == (3, 3)
         assert blocks[1] == (7, 2)
+
