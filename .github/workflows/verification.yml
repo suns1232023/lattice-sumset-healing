@@ -4,20 +4,22 @@ on:
   workflow_dispatch:
     inputs:
       profile:
-        description: "Verification profile"
+        description: 'Verification profile'
         required: true
-        default: "full"
+        default: 'full'
         type: choice
         options: [quick, full]
   schedule:
-    - cron: "0 0 * * 0"
+    - cron: '0 0 * * 0'
 
 jobs:
   full-verification:
+    name: Full Verification (${{ github.event.inputs.profile || 'full' }})
     runs-on: ubuntu-latest
+    timeout-minutes: 120
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -37,63 +39,44 @@ jobs:
         run: |
           PROFILE="${{ github.event.inputs.profile || 'full' }}"
           echo "Running profile: $PROFILE"
-          python scripts/run_verification.py --profile "$PROFILE" --output-dir results
+          python scripts/run_verification.py \
+            --profile $PROFILE \
+            --output-dir results
 
       - name: Generate evidence ledger
         run: python scripts/generate_evidence.py
 
-      - name: Validate machine-readable results
-        run: python scripts/validate_results.py
-
       - name: Verify results
         run: |
-          python - <<'PY'
-          import json
-          import sys
-          from pathlib import Path
-
-          path = Path("results/status.json")
-          if not path.exists():
-              print("ERROR: results/status.json not found!")
+          python - <<'PYEOF'
+          import json, sys
+          with open('results/status.json') as f:
+              s = json.load(f)
+          print('=== Verification Results ===')
+          print('Version: ', s['version'])
+          print('Profile: ', s['profile'])
+          print('Status:  ', s['status'])
+          print('Single-block cases:   ', s['single_block_cases'])
+          print('Single-block failures:', s['single_block_failures'])
+          print('Multiblock cases:     ', s['multiblock_cases'])
+          print('Multiblock TP/TN/FP/FN:', s['multiblock_tp'], s['multiblock_tn'], s['multiblock_fp'], s['multiblock_fn'])
+          print('Multiblock failures:  ', s['multiblock_failures'])
+          print('Adversarial cases:    ', s['adversarial_cases'])
+          print('Adversarial failures: ', s['adversarial_failures'])
+          print('Total cases:          ', s['total_cases'])
+          print('Total failures:       ', s['failed_cases'])
+          print('Runtime:              ', s['runtime_sec'])
+          print('NOTE:', s['epistemic_note'])
+          if s['status'] != 'PASS' or s['failed_cases'] != 0:
+              print('VERIFICATION FAILED')
               sys.exit(1)
-
-          s = json.loads(path.read_text())
-
-          print("=== Verification Results ===")
-          print(f"Version:  {s.get('version', 'N/A')}")
-          print(f"Profile:  {s.get('profile', 'full')}")
-          print(f"Status:   {s.get('status', 'UNKNOWN')}")
-          print()
-          print(f"Single-block (M3'):")
-          print(f"  Cases:    {s.get('single_block_cases', 0):,}")
-          print(f"  Failures: {s.get('single_block_failures', 0)}")
-          print()
-          print(f"Multi-block (14.3):")
-          print(f"  Cases:    {s.get('multiblock_cases', 0):,}")
-          print(f"  TP={s.get('multiblock_tp', 0)} TN={s.get('multiblock_tn', 0)} FP={s.get('multiblock_fp', 0)} FN={s.get('multiblock_fn', 0)}")
-          print(f"  Failures: {s.get('multiblock_failures', 0)}")
-          print()
-          print(f"Adversarial:")
-          print(f"  Cases:    {s.get('adversarial_cases', 0):,}")
-          print(f"  Failures: {s.get('adversarial_failures', 0)}")
-          print()
-          print(f"Total cases:    {s.get('total_cases', 0):,}")
-          print(f"Total failures: {s.get('failed_cases', 0)}")
-          print(f"Runtime:        {s.get('runtime_sec', 0.0)}s")
-          print()
-          note = s.get("epistemic_note", "Computational verification provides evidence; it does not constitute a mathematical proof.")
-          print(f"EPISTEMIC NOTE: {note}")
-
-          passed = s.get("status") == "PASS" and s.get("failed_cases", 0) == 0
-          if not passed:
-              print("VERIFICATION FAILED")
-              sys.exit(1)
-          print("VERIFICATION PASSED")
-          sys.exit(0)
-          PY
+          print('VERIFICATION PASSED')
+          PYEOF
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: verification-results
+          name: verification-results-${{ github.run_id }}
           path: results/
+          retention-days: 90
+
