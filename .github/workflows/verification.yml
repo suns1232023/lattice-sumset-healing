@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       profile:
-        description: 'Verification profile'
+        description: "Verification profile"
         required: true
-        default: 'full'
+        default: "full"
         type: choice
         options: [quick, full]
   schedule:
     # Weekly on Sunday 00:00 UTC
-    - cron: '0 0 * * 0'
+    - cron: "0 0 * * 0"
 
 jobs:
   full-verification:
@@ -28,38 +28,48 @@ jobs:
           python-version: "3.11"
 
       - name: Install package
-        run: pip install -e .
+        run: python -m pip install -e .
 
       - name: Run verification suite
         run: |
           PROFILE="${{ github.event.inputs.profile || 'full' }}"
           echo "Running profile: $PROFILE"
-          python scripts/run_verification.py \
-            --profile $PROFILE \
-            --output-dir results
+          python scripts/run_verification.py             --profile "$PROFILE"             --output-dir results
 
       - name: Generate evidence ledger
         run: python scripts/generate_evidence.py
 
+      - name: Validate machine-readable results
+        run: python scripts/validate_results.py
+
       - name: Verify results
         run: |
-          python -c "
-          import json, sys
-          s = json.load(open('results/status.json'))
-          print('=== Verification Results ===')
-          print(f'Version: {s[\"version\"]}')
-          print(f'Profile: {s[\"profile\"]}')
-          print(f'Status: {s[\"status\"]}')
-          print(f'Total cases: {s[\"total_cases\"]:,}')
-          print(f'  Single-block (M3\\'): {s[\"single_block_cases\"]:,}')
-          print(f'  Multi-block (14.3): {s[\"multiblock_cases\"]:,}')
-          print(f'  Adversarial: {s[\"adversarial_cases\"]:,}')
-          print(f'Failures: {s[\"failed_cases\"]}')
-          print(f'Runtime: {s[\"runtime_sec\"]}s')
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          path = Path("results/status.json")
+          s = json.loads(path.read_text())
+
+          print("=== Verification Results ===")
+          print(f"Version: {s['version']}")
+          print(f"Profile: {s['profile']}")
+          print(f"Status: {s['status']}")
+          print(f"Total cases: {s['total_cases']:,}")
+          print(f" Single-block (M3'): {s['single_block_cases']:,}")
+          print(f" Multi-block (14.3): {s['multiblock_cases']:,}")
+          print(f" Adversarial: {s['adversarial_cases']:,}")
+          print(f"Failures: {s['failed_cases']}")
+          print(f"Runtime: {s['runtime_sec']}s")
           print()
-          print('EPISTEMIC NOTE:', s['epistemic_note'])
-          sys.exit(0 if s['status'] == 'PASS' else 1)
-          "
+          print("EPISTEMIC NOTE:", s.get(
+              "epistemic_note",
+              "Computational verification provides evidence; it does not constitute a mathematical proof."
+          ))
+
+          sys.exit(0 if s["status"] == "PASS" and s["failed_cases"] == 0 else 1)
+          PY
 
       - name: Upload results
         uses: actions/upload-artifact@v4
