@@ -2,13 +2,13 @@
 scripts/run_verification.py — Master verification script.
 
 Usage:
-    python scripts/run_verification.py --profile ci       # fast (~0.1s)
-    python scripts/run_verification.py --profile quick    # medium (~1s)
-    python scripts/run_verification.py --profile full     # complete (~minutes)
+    python scripts/run_verification.py --profile ci      # fast (~0.1s)
+    python scripts/run_verification.py --profile quick   # medium (~1s)
+    python scripts/run_verification.py --profile full    # complete (~minutes)
 
 Output:
     results/status.json      — machine-readable audit summary
-    results/checksums.sha256 — integrity hashes
+    results/checksums.sha256 — integrity hashes (excludes itself)
 
 NOTE: Computational evidence for conjectures, NOT mathematical proofs.
 """
@@ -35,7 +35,7 @@ PROFILES = {
 
 
 def audit_m3(N_max: int, ell_max: int) -> dict:
-    """Audit Conjecture M3' — three-engine cross-validation."""
+    """Audit Conjecture M3' — Engine A (exact) and B (exact) vs Predictor C (conjectural)."""
     total = exact = 0
     for N in range(5, N_max + 1):
         for length in range(1, ell_max + 1):
@@ -58,7 +58,6 @@ def audit_m3(N_max: int, ell_max: int) -> dict:
         'total': total,
         'exact': exact,
         'failures': failures,
-        'engines': ['pure_set', 'bitwise', 'formula'],
     }
 
 
@@ -75,6 +74,7 @@ def audit_multiblock(N_max: int, max_blocks: int) -> dict:
                 if pred is None:
                     continue
                 actual_h = self_healing_threshold(N, void_set, max_h=pred + 5)
+                # actual_h is None means "not found within horizon", NOT infinity
                 actual_fail = actual_h is not None and actual_h > pred
                 predicted_fail = result['triggered']
                 total += 1
@@ -141,7 +141,7 @@ def main():
 
     cfg = PROFILES[args.profile]
     out = Path(args.output_dir)
-    out.mkdir(parents=True, exist_ok=True)
+    out.mkdir(exist_ok=True)
 
     print("=" * 65)
     print(f"  Additive Self-Healing — Verification Suite")
@@ -168,6 +168,7 @@ def main():
     elapsed = time.time() - t0
 
     status = {
+        'schema_version': '1.0',
         'version': '2.17',
         'profile': args.profile,
         'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
@@ -178,6 +179,7 @@ def main():
             'NOT a mathematical proof.'
         ),
         'single_block_cases': m3['total'],
+        'single_block_exact_agreement': m3['exact'],
         'single_block_failures': m3['failures'],
         'multiblock_cases': mb['total'],
         'multiblock_tp': mb['tp'],
@@ -189,7 +191,11 @@ def main():
         'adversarial_failures': adv['failures'],
         'total_cases': total,
         'failed_cases': failed,
-        'engines': ['pure_set', 'bitwise', 'formula'],
+        'engines': {
+            'A': 'pure_set (exact reference implementation)',
+            'B': 'bitwise (independent exact implementation)',
+            'C': 'M3_predictor (conjectural formula, NOT independent exact)',
+        },
         'runtime_sec': round(elapsed, 2),
     }
 
@@ -197,11 +203,12 @@ def main():
     with open(status_path, 'w') as f:
         json.dump(status, f, indent=2)
 
+    # Checksums — only hash result artifacts, NOT the checksum file itself
+    checksum_path = out / 'checksums.sha256'
     checksums = {}
-    for p in out.glob('*'):
-        if p.is_file():
-            checksums[p.name] = hashlib.sha256(p.read_bytes()).hexdigest()
-    with open(out / 'checksums.sha256', 'w') as f:
+    for p in sorted(out.glob('*.json')):
+        checksums[p.name] = hashlib.sha256(p.read_bytes()).hexdigest()
+    with open(checksum_path, 'w') as f:
         for name, chk in sorted(checksums.items()):
             f.write(f"{chk}  {name}\n")
 
