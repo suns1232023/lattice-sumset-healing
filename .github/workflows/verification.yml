@@ -1,4 +1,5 @@
 name: Full Verification
+# Pipeline: install → import test → full verification → schema validation → evidence → assertion → upload
 
 on:
   workflow_dispatch:
@@ -26,11 +27,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install package
         run: |
-          python -m pip install --upgrade pip setuptools wheel
-          echo "PYTHONPATH=$GITHUB_WORKSPACE/src" >> $GITHUB_ENV
-          pip install -e . || echo "Editable install failed, PYTHONPATH fallback active"
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
 
       - name: Verify import
         run: python -c "import self_healing; print('Import OK:', self_healing.__version__)"
@@ -43,10 +43,13 @@ jobs:
             --profile $PROFILE \
             --output-dir results
 
-      - name: Generate evidence ledger
-        run: python scripts/generate_evidence.py
+      - name: Validate schema
+        run: python scripts/validate_results.py --results-dir results
 
-      - name: Verify results
+      - name: Generate evidence ledger
+        run: python scripts/generate_evidence.py --results-dir results
+
+      - name: Final result assertion
         run: |
           python - <<'PYEOF'
           import json, sys
@@ -70,6 +73,7 @@ jobs:
           if s['status'] != 'PASS' or s['failed_cases'] != 0:
               print('VERIFICATION FAILED')
               sys.exit(1)
+          assert s['not_a_proof'] is True, "not_a_proof must be True"
           print('VERIFICATION PASSED')
           PYEOF
 
@@ -79,4 +83,3 @@ jobs:
           name: verification-results-${{ github.run_id }}
           path: results/
           retention-days: 90
-
